@@ -5,11 +5,10 @@ on:
     branches: [ "release" ]
   workflow_dispatch:
 
-strategy:
-  matrix:
-    node-version: ['20.x']
-
 jobs:
+  strategy:
+    matrix:
+      node-version: ['20.x']
   build:
     runs-on: ubuntu-latest
     defaults:
