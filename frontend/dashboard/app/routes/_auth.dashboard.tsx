@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { FollowersTable } from "~/features/dashboard/table";
 import { fetchFollowers, Followers } from "~/features/api/followers";
 import { HandIcon } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs"
 
 export const meta: MetaFunction = () => {
   return [{ title: "IGDashboard" }];
@@ -37,11 +38,23 @@ export default function Index() {
 
   return (
     <div>
-      <div className="flex gap-3 h-screen flex-col">
+      <div className="flex gap-2 h-screen flex-col">
         <div className="flex-1 h-1/3 w-full">
           <Charts followers={followers} />
         </div>
         <div className="h-[calc(60% - 8px)] w-full overflow-y-auto">
+          <Tabs defaultValue="all" className="w-full text-xs">
+            <TabsList>
+              <TabsTrigger value="all">すべて</TabsTrigger>
+              <TabsTrigger value="unfollow">フォロー解除</TabsTrigger>
+            </TabsList>
+            <TabsContent value="all">
+              <FollowersTable followers={followers} />
+            </TabsContent>
+            <TabsContent value="unfollow">
+              <FollowersTable followers={followers} />
+            </TabsContent>
+          </Tabs>
           <FollowersTable followers={followers} />
         </div>
         <Button onClick={signout} className="w-28">

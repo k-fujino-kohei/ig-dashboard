@@ -1,11 +1,10 @@
 import { TrendingUp } from "lucide-react";
 import {
-  Area,
-  AreaChart,
   CartesianGrid,
   LabelList,
   XAxis,
   YAxis,
+  Bar, BarChart
 } from "recharts";
 
 import { CardDescription } from "./ui/card";
@@ -18,6 +17,7 @@ import {
 import dayjs from "dayjs";
 import minMax from "dayjs/plugin/minMax";
 import { Followers } from "~/features/api/followers";
+
 dayjs.extend(minMax);
 
 export const description = "A stacked area chart";
@@ -113,13 +113,8 @@ export const Charts = ({ followers }: { followers: Followers[] }) => {
         </CardDescription>
       </div>
       <ChartContainer config={chartConfig} className="h-[80%] w-full">
-        <AreaChart
-          accessibilityLayer
-          data={chartData}
-          margin={{
-            left: 12,
-            right: 12,
-          }}
+        <BarChart accessibilityLayer data={chartData}
+          margin={{ left: -23, right: 10, }}
         >
           <CartesianGrid vertical={false} />
           <XAxis
@@ -133,27 +128,35 @@ export const Charts = ({ followers }: { followers: Followers[] }) => {
             cursor={false}
             content={<ChartTooltipContent indicator="dot" />}
           />
-          <Area
-            dataKey="active_count"
+          <Bar
+            dataKey="new_follows_count"
             type="linear"
             fill="var(--color-active_count)"
-            fillOpacity={0.4}
+            fillOpacity={0.8}
             stroke="var(--color-active_count)"
           >
             <LabelList
               position="top"
-              offset={5}
-              className="fill-chart-2"
-              fontSize={10}
+              offset={2}
+              className="fill-neutral-800"
+              fontSize={12}
             />
-          </Area>
-          <Area
-            dataKey="new_follows_count"
+          </Bar>
+          <Bar
+            dataKey="active_count"
             type="linear"
             fill="var(--color-new_follows_count)"
+            fillOpacity={0.8}
             stroke="var(--color-new_follows_count)"
-          />
-        </AreaChart>
+          >
+            <LabelList
+              position="insideTop"
+              offset={5}
+              className="fill-neutral-800"
+              fontSize={12}
+            />
+          </Bar>
+        </BarChart>
       </ChartContainer>
     </div>
   );
