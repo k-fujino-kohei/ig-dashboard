@@ -36,11 +36,11 @@ jobs:
       - uses: actions/upload-artifact@v3
         with:
           name: dashboard
-          path: build/client
+          path: frontend/dashboard/build/client
 
       - uses: actions/upload-pages-artifact@v1
         with:
-          path: build/client
+          path: frontend/dashboard/build/client
 
   deploy:
     needs: build
