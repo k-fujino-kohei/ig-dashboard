@@ -26,12 +26,8 @@ jobs:
       - name: Install dependencies
         run: yarn --frozen-lockfile
         
-      - name: Get Repository name
-        run: echo "REPOSITORY_NAME=${{ github.repository }}" | awk -F '/' '{print "REPOSITORY_NAME="$2}' >> $GITHUB_ENV
-
       - name: Build
         env:
-          VITE_REPOSITORY_NAME: ${{ env.REPOSITORY_NAME }}
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}

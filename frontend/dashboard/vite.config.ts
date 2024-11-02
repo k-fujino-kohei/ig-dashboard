@@ -11,11 +11,11 @@ declare module "@remix-run/node" {
 }
 
 export default defineConfig({
-  base: process.env.VITE_REPOSITORY_NAME!,
+  base: "/ig-dashboard/",
   plugins: [
     remix({
       ssr: false,
-      basename: process.env.VITE_REPOSITORY_NAME!,
+      basename: "/ig-dashboard/",
       buildEnd(args) {
         if (!args.viteConfig.isProduction) return;
         const buildPath = args.viteConfig.build.outDir;
