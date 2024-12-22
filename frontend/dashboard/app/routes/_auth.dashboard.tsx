@@ -4,8 +4,8 @@ import { Charts } from "~/components/charts";
 import { useSession } from "~/features/signin/sessionProvider";
 import { useSignout } from "~/features/signin/useSignout";
 import { useNavigate } from "@remix-run/react";
-import { useEffect, useMemo, useState } from "react";
-import { FollowersTable, isFollowed, latestUpdatedAt } from "~/features/dashboard/table";
+import { useEffect, useState } from "react";
+import { FollowersTable } from "~/features/dashboard/table";
 import { fetchFollowers, Followers } from "~/features/api/followers";
 import { HandIcon } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs"
@@ -36,11 +36,6 @@ export default function Index() {
     })();
   }, []);
 
-  const unfollowers = useMemo(() => {
-    const now = latestUpdatedAt(followers);
-    return followers.filter((follower) => !isFollowed(follower, now));
-  }, [followers]);
-
   return (
     <div>
       <div className="flex gap-2 h-screen flex-col">
@@ -57,7 +52,7 @@ export default function Index() {
               <FollowersTable followers={followers} />
             </TabsContent>
             <TabsContent value="unfollow">
-              <FollowersTable followers={unfollowers} />
+              <FollowersTable followers={followers} filter={{ onlyUnfollowers: true }} />
             </TabsContent>
           </Tabs>
         </div>

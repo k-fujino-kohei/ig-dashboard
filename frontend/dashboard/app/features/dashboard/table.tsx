@@ -10,9 +10,13 @@ import { Button, buttonVariants } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 import dayjs from "dayjs";
 import { Followers } from "../api/followers";
-import { ColumnDef, flexRender, getCoreRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
-import { useState } from "react";
+import { ColumnDef, ColumnFilter, flexRender, getCoreRowModel, getFilteredRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
+import { useMemo, useState } from "react";
 import { ArrowUpDown } from "lucide-react";
+
+type RowData = Followers & {
+  isFollowed: boolean;
+}
 
 const fmtDate = (date: string) => {
   const result = dayjs(date).format("YYYY-MM-DD");
@@ -23,18 +27,8 @@ const igUrl = (username: string) => {
   return `https://www.instagram.com/${username}`;
 };
 
-export const isFollowed = (follower: Followers, latestUpdatedAt: dayjs.Dayjs) => {
-  return latestUpdatedAt.isSame(dayjs(follower.updated_at), 'day')
-}
 
-export const latestUpdatedAt = (followers: Followers[]) => {
-  const cloned = [...followers]
-  if (!cloned.length) return dayjs()
-  cloned.sort((a, b) => dayjs(b.updated_at).diff(dayjs(a.updated_at)))
-  return dayjs(cloned[0].updated_at)
-}
-
-const columns = (latestUpdatedAt: dayjs.Dayjs): ColumnDef<Followers>[] => [
+const columns = (): ColumnDef<RowData>[] => [
   {
     accessorKey: "username",
     header: ({ column }) => {
@@ -96,7 +90,7 @@ const columns = (latestUpdatedAt: dayjs.Dayjs): ColumnDef<Followers>[] => [
   {
     accessorKey: 'updated_at',
     accessorFn: (row) => {
-      return isFollowed(row, latestUpdatedAt) ? 'フォロワー' : `解除(${fmtDate(row.updated_at)})`
+      return row.isFollowed ? 'フォロワー' : `解除(${fmtDate(row.updated_at)})`
     },
     header: ({ column }) => {
       return (
@@ -116,20 +110,49 @@ const columns = (latestUpdatedAt: dayjs.Dayjs): ColumnDef<Followers>[] => [
           {row.getValue('updated_at')}
         </TableCell>
       )
+    },
+    filterFn: (row, _columnId, _filterValue) => {
+      return !row.original.isFollowed
     }
   },
 ]
 
-export const FollowersTable = ({ followers }: { followers: Followers[] }) => {
+export const FollowersTable = ({ followers, filter }: { followers: Followers[], filter?: { onlyUnfollowers?: boolean } }) => {
+  const latestUpdatedAt = useMemo(() => {
+    const cloned = [...followers]
+    if (!cloned.length) return dayjs()
+    cloned.sort((a, b) => dayjs(b.updated_at).diff(dayjs(a.updated_at)))
+    return dayjs(cloned[0].updated_at)
+  }, [followers])
+
   const [sorting, setSorting] = useState<SortingState>([])
+  const [filterConditions, setFilterConditions] = useState<ColumnFilter[]>(filter?.onlyUnfollowers ? [
+    {
+      id: 'updated_at',
+      value: latestUpdatedAt.toString()
+    }
+  ] : [])
+
+  const data = useMemo(() => {
+    return followers.map((f) => {
+      return {
+        ...f,
+        isFollowed: latestUpdatedAt.isSame(dayjs(f.updated_at), 'day'),
+      }
+    })
+  }, [followers])
+
   const table = useReactTable({
-    data: followers,
-    columns: columns(latestUpdatedAt(followers)),
+    data,
+    columns: columns(),
     getCoreRowModel: getCoreRowModel(),
     onSortingChange: setSorting,
     getSortedRowModel: getSortedRowModel(),
+    onColumnFiltersChange: setFilterConditions,
+    getFilteredRowModel: getFilteredRowModel(),
     state: {
       sorting,
+      columnFilters: filterConditions
     },
   })
 

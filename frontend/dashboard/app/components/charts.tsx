@@ -14,9 +14,14 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "./ui/chart";
-import dayjs from "dayjs";
+import dayjs, { OpUnitType } from "dayjs";
 import minMax from "dayjs/plugin/minMax";
 import { Followers } from "~/features/api/followers";
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from "./ui/toggle-group"
+import { useMemo, useState } from "react";
 
 dayjs.extend(minMax);
 
@@ -35,85 +40,135 @@ const chartConfig = {
 
 type DailyFollowerCounts = {
   date: string;
+  miniDate: string;
   active_count: number;
   new_follows_count: number;
 };
 
-// 開始日から終了日までの日付配列を生成する関数
-const generateDateArray = (followers: Followers[]): string[] => {
-  // 開始日と終了日を設定
-  const startDate = dayjs.min(followers.map((f) => dayjs(f.created_at)));
-  const endDate = dayjs();
-  const dates: string[] = [];
-  if (!startDate) {
-    return dates;
+/**
+ * Followers配列からDailyFollowerCountsを生成する関数
+ * @param followers - Followersの配列
+ * @returns DailyFollowerCountsの配列
+ */
+function generateDailyFollowerCounts(followers: Followers[]): DailyFollowerCounts[] {
+  if (followers.length === 0) return [];
+
+  // created_atの最小日付と最大日付を取得
+  let minDate = dayjs(followers[0].created_at);
+  let maxDate = dayjs(followers[0].created_at);
+
+  for (const follower of followers) {
+    const created = dayjs(follower.created_at);
+    if (created.isBefore(minDate)) minDate = created;
+    if (created.isAfter(maxDate)) maxDate = created;
   }
 
-  for (
-    let date = startDate;
-    date.isBefore(endDate) || date.isSame(endDate);
-    date = date.add(1, "day")
-  ) {
-    dates.push(date.format("MM/DD"));
+  const dailyCounts: DailyFollowerCounts[] = [];
+  let currentDate = minDate.clone();
+
+  while (currentDate.isSame(maxDate) || currentDate.isBefore(maxDate)) {
+    const dateStr = currentDate.format('YYYY-MM-DD');
+
+    // active_countの計算: created_at <= currentDate <= updated_at
+    const active_count = followers.filter(follower => {
+      const createdAt = dayjs(follower.created_at);
+      const updatedAt = dayjs(follower.updated_at);
+      const createdAtIsSameOrBefore = createdAt.isSame(currentDate, 'day') || createdAt.isBefore(currentDate, 'day');
+      const updatedAtIsSameOrAfter = updatedAt.isSame(currentDate, 'day') || updatedAt.isAfter(currentDate, 'day');
+      return createdAtIsSameOrBefore && updatedAtIsSameOrAfter;
+    }).length;
+
+    // new_follows_countの計算: created_atがcurrentDateと同じ
+    const new_follows_count = followers.filter(follower =>
+      dayjs(follower.created_at).isSame(currentDate, 'day')
+    ).length;
+
+    dailyCounts.push({
+      date: dateStr,
+      miniDate: currentDate.format('MM-DD'),
+      active_count,
+      new_follows_count,
+    });
+
+    // 次の日に進む
+    currentDate = currentDate.add(1, 'day');
   }
-  return dates;
-};
-
-// フォロー中の人数と新規フォロー数を日別に集計する関数
-const countFollowersByDate = (
-  followers: Followers[],
-): DailyFollowerCounts[] => {
-  // 開始日から終了日までの日付配列を生成
-  const dateArray = generateDateArray(followers);
-
-  // 日付ごとのフォロワー数を格納するオブジェクト
-  const activeDateCount: { [date: string]: number } = {};
-  const newFollowDateCount: { [date: string]: number } = {};
-
-  // 各フォロワーについてフォロー期間の日付をカウント
-  followers.forEach((follower) => {
-    const followStart = dayjs(follower.created_at);
-    const followEnd = dayjs(follower.updated_at);
-
-    // 新規フォローの日付でカウント
-    const formattedStartDate = followStart.format("MM/DD");
-    newFollowDateCount[formattedStartDate] =
-      (newFollowDateCount[formattedStartDate] || 0) + 1;
-
-    // フォロー期間内の日付ごとにカウントをインクリメント
-    for (
-      let date = followStart;
-      date.isBefore(followEnd) || date.isSame(followEnd);
-      date = date.add(1, "day")
-    ) {
-      const formattedDate = date.format("MM/DD");
-      activeDateCount[formattedDate] =
-        (activeDateCount[formattedDate] || 0) + 1;
-    }
-  });
-
-  // dateArrayを基に結果の配列を作成
-  const dailyCounts: DailyFollowerCounts[] = dateArray.map((date) => ({
-    date,
-    active_count: activeDateCount[date] || 0,
-    new_follows_count: newFollowDateCount[date] || 0,
-  }));
 
   return dailyCounts;
-};
+}
 
 export const Charts = ({ followers }: { followers: Followers[] }) => {
-  const chartData = countFollowersByDate(followers);
+  const chartData = useMemo(() => generateDailyFollowerCounts(followers), [followers])
+  const [span, setSpan] = useState("7");
+  const [unit, setUnit] = useState("day");
+
+  const filteredData = useMemo(() => {
+    if (span === "all") return chartData;
+    return chartData.filter((c) => dayjs(c.date, "YYYY-MM-DD").isAfter(dayjs().subtract(Number(span), "days")))
+  }, [chartData, span])
+
+  const aggregatedData = useMemo(() => {
+    const unitType = unit as OpUnitType
+    // 週ごとに集約する
+    const agg = filteredData.reduce((acc, cur) => {
+      const week = dayjs(cur.date).startOf(unitType).format("YYYY-MM-DD");
+      const miniweek = dayjs(cur.date).startOf(unitType).format("MM-DD");
+      if (!acc[week]) {
+        acc[week] = { date: week, miniDate: miniweek, active_count: 0, new_follows_count: 0 };
+      }
+      // active_countはその週の最後に更新された値を使う
+      // new_follows_countはその週の合計
+      acc[week].active_count = cur.active_count;
+      acc[week].new_follows_count += cur.new_follows_count;
+      return acc;
+    }, {} as Record<string, DailyFollowerCounts>);
+    return Object.values(agg).map((v) => {
+      if (unitType === "day") return v;
+      const endweek = dayjs(v.date).endOf(unitType).format("DD");
+      return {
+        ...v,
+        date: `${v.miniDate}~${endweek}`
+      };
+    });
+  }, [filteredData, unit]);
+
+  console.log(aggregatedData);
+
   return (
     <div className="h-full">
       <div className="p-3">
         <CardDescription className="flex items-center gap-2 text-xs">
           フォロワー数推移
           <TrendingUp size="16" />
+          {/* 絞り込み */}
+          <div className="border rounded-md border-muted text-xs">
+            <ToggleGroup type="single" value={span} onValueChange={setSpan}>
+              <ToggleGroupItem value="all" className="text-xs p-2 h-fit">
+                全期間
+              </ToggleGroupItem>
+              <ToggleGroupItem value="30" className="text-xs p-2 h-fit">
+                30日
+              </ToggleGroupItem>
+              <ToggleGroupItem value="7" className="text-xs p-2 h-fit">
+                7日
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+          {/* 絞り込み */}
+          <div className="border rounded-md border-muted">
+            <ToggleGroup type="single" value={unit} onValueChange={setUnit}>
+              <ToggleGroupItem value="week" className="text-xs p-2 h-fit">
+                週
+              </ToggleGroupItem>
+              <ToggleGroupItem value="day" className="text-xs p-2 h-fit">
+                日
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
         </CardDescription>
       </div>
       <ChartContainer config={chartConfig} className="h-[80%] w-full">
-        <BarChart accessibilityLayer data={chartData}
+        <BarChart accessibilityLayer data={aggregatedData}
           margin={{ left: -23, right: 10, }}
         >
           <CartesianGrid vertical={false} />
