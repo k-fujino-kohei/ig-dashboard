@@ -16,6 +16,8 @@ import {
 } from "./ui/chart";
 import dayjs, { OpUnitType } from "dayjs";
 import minMax from "dayjs/plugin/minMax";
+import utc from "dayjs/plugin/utc";
+import tz from "dayjs/plugin/timezone";
 import { Followers } from "~/features/api/followers";
 import {
   ToggleGroup,
@@ -24,6 +26,9 @@ import {
 import { useMemo, useState } from "react";
 
 dayjs.extend(minMax);
+dayjs.extend(utc);
+dayjs.extend(tz)
+dayjs.tz.setDefault('Asia/Tokyo')
 
 export const description = "A stacked area chart";
 
@@ -59,8 +64,9 @@ function generateDailyFollowerCounts(followers: Followers[]): DailyFollowerCount
 
   for (const follower of followers) {
     const created = dayjs(follower.created_at);
+    const updated = dayjs(follower.updated_at);
     if (created.isBefore(minDate)) minDate = created;
-    if (created.isAfter(maxDate)) maxDate = created;
+    if (updated.isAfter(maxDate)) maxDate = updated;
   }
 
   const dailyCounts: DailyFollowerCounts[] = [];
